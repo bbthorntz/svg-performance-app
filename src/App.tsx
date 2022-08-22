@@ -71,7 +71,9 @@ export default function App() {
                         ref={svgStrRef}
                         className="block rounded-md border-gray-300 shadow-sm w-full"
                         type="text"
-                        defaultValue={exampleSvg}
+                        defaultValue={
+                            import.meta.env.PROD ? undefined : exampleSvg
+                        }
                         placeholder="Paste SVG..."
                     />
                 </label>
