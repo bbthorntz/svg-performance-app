@@ -2,18 +2,48 @@ import { useState, useRef, useEffect } from 'react';
 import ReactHtmlParser from 'html-react-parser';
 // @ts-ignore
 import getSvgoInstance from 'svgo-browser/lib/get-svgo-instance';
-import exampleSvg from './assets/example-svg';
+import exampleSvg from './assets/example.svg?raw';
 
 // everything included in default configuration
 const svgo = getSvgoInstance({
     removeDimensions: false,
 });
 
+const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+const download = (str: string) => {
+    const file = new File([str], 'optimised.svg', {
+        type: 'text/plain',
+    });
+
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(file);
+
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+};
+
 export default function App() {
     const svgStrRef = useRef<HTMLInputElement>(null);
     const svgCountRef = useRef<HTMLInputElement>(null);
     const svgRenderMethodRef = useRef<HTMLSelectElement>(null);
     const svgSvgoRef = useRef<HTMLSelectElement>(null);
+    const optimisedFile = useRef<string>('');
     const [svgs, setSvgs] = useState<React.ReactNode>();
     const [lastRenderTime, setLastRenderTime] = useState<number>(0);
 
@@ -39,6 +69,8 @@ export default function App() {
                       .optimize(svgStrOriginal)
                       .then(({ data }: { data: string }) => data)) as string)
                 : svgStrOriginal;
+
+        optimisedFile.current = svgStr;
 
         let nextDivs = [];
         const element = ReactHtmlParser(svgStr);
@@ -84,12 +116,13 @@ export default function App() {
                     <span>SVG:</span>
                     <input
                         ref={svgStrRef}
+                        required
                         className="block rounded-md border-gray-300 shadow-sm w-full"
                         type="text"
                         defaultValue={
                             import.meta.env.PROD ? undefined : exampleSvg
                         }
-                        placeholder="Paste SVG..."
+                        placeholder="Paste SVG contents..."
                     />
                 </label>
 
@@ -124,7 +157,7 @@ export default function App() {
                             dangerouslySetInnerHTML
                         </option>
                         <option value="jsx">JSX</option>
-                        <option value="img">Img</option>
+                        <option value="img">Img (Data URI)</option>
                     </select>
                 </label>
                 <button
@@ -135,10 +168,29 @@ export default function App() {
                 </button>
             </form>
             <div className="flex-auto p-4 overflow-y-auto">{svgs}</div>
-            <div className="flex-none p-4 bg-slate-100">
+            <div className="flex-none p-4 bg-slate-100 flex place-content-between">
                 <div>
                     Render time: {Math.round(lastRenderTime * 100) / 100}ms
                 </div>
+                {svgSvgoRef.current?.value === 'optimise' && (
+                    <div>
+                        Optimised file size:{' '}
+                        {formatBytes(
+                            new Blob([svgStrRef.current?.value ?? '']).size
+                        )}{' '}
+                        → {formatBytes(new Blob([optimisedFile.current]).size)}.{' '}
+                        <a
+                            href="#"
+                            className="underline text-blue-600 hover:text-blue-800 visited:text-purple-600"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                download(optimisedFile.current);
+                            }}
+                        >
+                            Download
+                        </a>
+                    </div>
+                )}
             </div>
         </div>
     );
